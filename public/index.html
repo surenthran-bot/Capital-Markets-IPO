@@ -74,23 +74,39 @@
 <script src="/socket.io/socket.io.js"></script>
 <script>
 (function(){
-  const PHASES = ['lobby','ipo','fpo','rights','allotment','break','secondary','indices','sebi','rbi','global','finalindex','debrief'];
+  const PHASES = ['lobby','ipo','fpo','rights','allotment','secondary','indices','sebi','rbi','global','finalindex','debrief'];
   const PHASE_LABEL = {
     lobby:'Lobby', ipo:'Round 1 · IPO (Co. A)', fpo:'Round 2 · FPO (Co. B)', rights:'Round 3 · Rights + Private Placement (Co. C)',
-    allotment:'Allotment Results', break:'☕ Break', secondary:'Round 4 · Secondary Market', indices:'Round 5 · NSE vs BSE & Indices',
+    allotment:'Allotment Results', secondary:'Round 4 · Secondary Market', indices:'Round 5 · NSE vs BSE & Indices',
     sebi:'Round 6 · SEBI Hat', rbi:'Round 7 · RBI Hat', global:'Round 8 · Global Regulators Hat',
     finalindex:'Final Index Check', debrief:'Debrief & Awards',
   };
   const AGENDA = [
-    ['0:00–0:08','Lobby & role briefing'], ['0:08–0:15','Round 1 — IPO book-building (Company A)'],
-    ['0:15–0:20','Round 2 — FPO fixed-price issue (Company B)'], ['0:20–0:28','Round 3 — Rights Issue + Private Placement (Company C)'],
-    ['0:28–0:32','Allotment results announced'], ['0:32–0:47','Break'],
-    ['0:47–1:07','Round 4 — Secondary market: market/limit/stop/bracket orders'],
-    ['1:07–1:15','Round 5 — NSE vs BSE comparison + Nifty/Sensex construction'],
-    ['1:15–1:25','Round 6 — SEBI hat: investor protection event'],
-    ['1:25–1:33','Round 7 — RBI hat: monetary policy event'],
-    ['1:33–1:41','Round 8 — Global Regulators hat: cross-border event'],
-    ['1:41–1:50','Final index check'], ['1:50–2:00','Debrief & awards'],
+    ['0:00–0:08','Login & role briefing'], ['0:08–0:16','Round 1 — IPO book-building (Company A)'],
+    ['0:16–0:22','Round 2 — FPO fixed-price issue (Company B)'], ['0:22–0:32','Round 3 — Rights Issue + Private Placement (Company C)'],
+    ['0:32–0:37','Allotment results announced'],
+    ['0:37–1:02','Round 4 — Secondary market: market/limit/stop/bracket orders'],
+    ['1:02–1:12','Round 5 — NSE vs BSE comparison + Nifty/Sensex construction'],
+    ['1:12–1:24','Round 6 — SEBI hat: investor protection event'],
+    ['1:24–1:34','Round 7 — RBI hat: monetary policy event'],
+    ['1:34–1:44','Round 8 — Global Regulators hat: cross-border event'],
+    ['1:44–1:53','Final index check'], ['1:53–2:00','Debrief & awards'],
+  ];
+
+  const CREDENTIALS = [
+    { id:'facilitator', user:'facilitator', pass:'host2026', title:'Facilitator', subtitle:'Run the simulation', details:'Controls phase progression, computes allotments, runs settlement, and sees the live leaderboard.' },
+    { id:'A', user:'companyA', pass:'ipoA123', title:'Company A', subtitle:'IPO Issuer', details:'Raises fresh capital via an Initial Public Offering — price is discovered through book-building.' },
+    { id:'B', user:'companyB', pass:'fpoB123', title:'Company B', subtitle:'FPO Issuer', details:'Already listed — raises further capital via a Follow-on Public Offer at a fixed discount to its market price.' },
+    { id:'C', user:'companyC', pass:'rightsC123', title:'Company C', subtitle:'Rights Issue + Private Placement', details:'A restricted issue — a Rights tranche for existing shareholders and a Private Placement tranche for Qualified Institutional Buyers only.' },
+    { id:'1', user:'desk1', pass:'trade1', title:'Investor Desk 1', subtitle:'NSE', details:'Routes all secondary market orders through the NSE Exchange Desk. Existing shareholder of Company C.' },
+    { id:'2', user:'desk2', pass:'trade2', title:'Investor Desk 2', subtitle:'NSE · Qualified Institutional Buyer', details:'Eligible for Company C\'s Private Placement tranche. Routes orders through NSE.' },
+    { id:'3', user:'desk3', pass:'trade3', title:'Investor Desk 3', subtitle:'NSE · QIB · Foreign Institutional Investor', details:'Eligible for Private Placement. Tagged FII — exposed to the Global Regulators round\'s outflow event. Routes orders through NSE.' },
+    { id:'4', user:'desk4', pass:'trade4', title:'Investor Desk 4', subtitle:'BSE · Existing Shareholder of Company C', details:'Eligible for Company C\'s Rights Issue. Routes orders through BSE.' },
+    { id:'5', user:'desk5', pass:'trade5', title:'Investor Desk 5', subtitle:'BSE · QIB · FII', details:'Eligible for Private Placement. Tagged FII — exposed to the Global Regulators round\'s outflow event. Routes orders through BSE.' },
+    { id:'6', user:'desk6', pass:'trade6', title:'Investor Desk 6', subtitle:'BSE · Retail', details:'Not eligible for Company C\'s restricted issue — first chance to buy Company C is on the secondary market. Routes orders through BSE.' },
+    { id:'NSE', user:'nseDesk', pass:'nse123', title:'NSE Exchange Desk', subtitle:'Order Matching + Nifty', details:'Matches buy/sell orders for its investor desks and doubles as the Nifty index desk in Round 5.' },
+    { id:'BSE', user:'bseDesk', pass:'bse123', title:'BSE Exchange Desk', subtitle:'Order Matching + Sensex', details:'Matches buy/sell orders for its investor desks and doubles as the Sensex index desk in Round 5.' },
+    { id:'REG', user:'regulator', pass:'reg123', title:'Regulatory Council', subtitle:'SEBI + RBI + Global — 3 hats', details:'Wears three regulatory hats across Rounds 6-8: SEBI, then RBI, then Global Regulators.' },
   ];
 
   let myRole = null, state = null, showGuide = false, connected = false;
@@ -119,8 +135,16 @@
 
   window.setPhase = function(p){ socket.emit('setPhase', p); };
   window.toggleGuide = function(){ showGuide = !showGuide; render(); };
-  window.chooseRole = function(r){ myRole = r; render(); };
-  window.changeRole = function(sel){ myRole = sel.value || null; render(); };
+  window.attemptLogin = function(){
+    const u = (document.getElementById('login-user').value||'').trim().toLowerCase();
+    const p = document.getElementById('login-pass').value||'';
+    const match = CREDENTIALS.find(c=>c.user.toLowerCase()===u && c.pass===p);
+    const errEl = document.getElementById('login-error');
+    if(match){ myRole = match.id; render(); }
+    else if(errEl){ errEl.textContent = 'Invalid login ID or password — check with your facilitator.'; }
+  };
+  window.loginKeydown = function(ev){ if(ev.key==='Enter') attemptLogin(); };
+  window.logout = function(){ myRole=null; render(); };
 
   const draftCompanies = { A:{}, B:{}, C:{} };
   window.setCompanyField = function(cid, field, val){ draftCompanies[cid][field] = val; };
@@ -212,31 +236,54 @@
   }
 
   function topbar(){
-    const roleNames = { facilitator:'Facilitator', A:'Company A (IPO)', B:'Company B (FPO)', C:'Company C (Rights/QIB)',
-      '1':'Investor Desk 1','2':'Investor Desk 2','3':'Investor Desk 3','4':'Investor Desk 4','5':'Investor Desk 5','6':'Investor Desk 6',
-      NSE:'NSE Exchange Desk', BSE:'BSE Exchange Desk', REG:'Regulatory Council' };
+    const cred = myRole ? CREDENTIALS.find(c=>c.id===myRole) : null;
     return '<div class="topbar">'
       +'<div class="brand">CAPITAL MARKETS LIVE <span>| 12-team simulation</span></div>'
       +'<div class="row">'
       +'<span class="muted"><span class="conn-dot '+(connected?'conn-ok':'conn-bad')+'"></span>'+(connected?'Live':'Reconnecting…')+'</span>'
       +'<button class="secondary" onclick="toggleGuide()">📋 Guide</button>'
       +'<span class="phase-badge">'+PHASE_LABEL[state.phase]+'</span>'
-      +'<select class="role-select" onchange="changeRole(this)"><option value="">Switch role…</option>'
-      +Object.keys(roleNames).map(k=>'<option value="'+k+'" '+(myRole===k?'selected':'')+'>'+roleNames[k]+'</option>').join('')
-      +'</select></div></div>';
+      +(cred ? '<span class="muted">Logged in as <b style="color:var(--text);">'+cred.title+'</b></span><button class="secondary" onclick="logout()">Logout</button>' : '')
+      +'</div></div>';
   }
 
-  function lobbyScreen(){
-    const roles = [
-      ['facilitator','Facilitator','Run the sim'], ['A','Company A','IPO issuer'], ['B','Company B','FPO issuer'], ['C','Company C','Rights + Private Placement'],
-      ['1','Investor Desk 1','NSE'],['2','Investor Desk 2','NSE · QIB'],['3','Investor Desk 3','NSE · QIB · FII'],
-      ['4','Investor Desk 4','BSE'],['5','Investor Desk 5','BSE · QIB · FII'],['6','Investor Desk 6','BSE · Retail'],
-      ['NSE','NSE Exchange Desk','Order matching + Nifty'],['BSE','BSE Exchange Desk','Order matching + Sensex'],
-      ['REG','Regulatory Council','SEBI + RBI + Global — 3 hats'],
-    ];
+  function loginScreen(){
     return '<div class="lobby-hero"><h1>CAPITAL MARKETS LIVE</h1><div class="muted">A 2-hour, 12-team simulation — from IPO to index, with regulators watching</div>'
       +'<button style="margin-top:14px;" onclick="toggleGuide()">📋 View Full Agenda</button>'
-      +'<div class="role-grid">'+roles.map(r=>'<div class="role-btn" onclick="chooseRole(\''+r[0]+'\')"><div class="r-title">'+r[1]+'</div><div class="r-sub">'+r[2]+'</div></div>').join('')+'</div></div>';
+      +'<div class="card" style="max-width:360px; margin:28px auto 0; text-align:left;">'
+      +'<h3>Team Login</h3>'
+      +'<div class="row" style="flex-direction:column; align-items:stretch;">'
+      +'<input id="login-user" placeholder="Login ID" style="width:100%; margin-bottom:10px;">'
+      +'<input id="login-pass" type="password" placeholder="Password" style="width:100%; margin-bottom:10px;" onkeydown="loginKeydown(event)">'
+      +'<button onclick="attemptLogin()">Login</button>'
+      +'<div id="login-error" class="muted" style="color:var(--red); margin-top:8px;"></div>'
+      +'</div><div class="muted" style="margin-top:14px;">Don\'t have your login? Ask your facilitator — each of the 12 teams has its own ID and password.</div>'
+      +'</div></div>';
+  }
+
+  function roleDetailsCard(){
+    const cred = CREDENTIALS.find(c=>c.id===myRole);
+    if(!cred) return '';
+    return '<div class="card" style="border-color:var(--amber);"><h3 style="text-transform:none; font-family:var(--sans); font-size:16px;">'+cred.title+' <span class="muted" style="font-family:var(--mono); font-size:12px; text-transform:uppercase;">'+cred.subtitle+'</span></h3><div class="muted">'+cred.details+'</div></div>';
+  }
+
+  function eventBanner(){
+    if(!state.eventLog || !state.eventLog.length) return '';
+    const recent = state.eventLog.slice(-3).reverse();
+    return '<div class="banner info" style="display:block;"><b>📢 Regulatory Update'+(recent.length>1?'s':'')+'</b>'
+      +recent.map(e=>'<div style="margin-top:6px;">'+e.time+' — '+e.text+'</div>').join('')
+      +'</div>';
+  }
+
+  function eligibilityRoster(){
+    if(state.phase!=='rights') return '';
+    const rows = Object.keys(state.investors).map(id=>{
+      const inv = state.investors[id];
+      const elig = [inv.existingC?'Rights':null, inv.qib?'Private Placement':null].filter(Boolean).join(' + ') || 'Neither — secondary market only';
+      return '<tr><td>Desk '+id+'</td><td>'+elig+'</td></tr>';
+    }).join('');
+    return '<div class="card"><h3>Who Can Buy What — Company C</h3><div class="muted">This is a restricted issue by design — each desk qualifies for at most one tranche, and Desk 6 for neither (they get first crack at Company C once it lists on the secondary market). That\'s expected, not a bug.</div>'
+      +'<table style="margin-top:10px;"><tr><th>Desk</th><th>Eligible For</th></tr>'+rows+'</table></div>';
   }
 
   function facilitatorView(){
@@ -251,7 +298,10 @@
         return '<tr><td>'+(i+1)+'</td><td>Desk '+b.id+'</td><td>'+inv.exchange+'</td><td class="muted">'+tags+'</td><td>'+fmt(b.val)+'</td></tr>'; }).join('')
       +'</table></div>'
       +'<div class="card"><h3>Event &amp; Trade Log</h3><div class="muted">Events: '+(state.eventLog.length?state.eventLog.map(e=>e.text).join(' · '):'none yet')+'</div>'
-      +'<div class="muted" style="margin-top:6px;">Trades executed: '+state.trades.length+' &nbsp;|&nbsp; Pending settlement: '+state.trades.filter(t=>t.settlement==='pending').length+'</div></div>';
+      +'<div class="muted" style="margin-top:6px;">Trades executed: '+state.trades.length+' &nbsp;|&nbsp; Pending settlement: '+state.trades.filter(t=>t.settlement==='pending').length+'</div></div>'
+      +'<div class="card"><h3>Team Credentials — print/share before class</h3><table><tr><th>Team</th><th>Login ID</th><th>Password</th></tr>'
+      +CREDENTIALS.filter(c=>c.id!=='facilitator').map(c=>'<tr><td>'+c.title+' <span class="muted">('+c.subtitle+')</span></td><td>'+c.user+'</td><td>'+c.pass+'</td></tr>').join('')
+      +'</table></div>';
   }
 
   function companyAView(){
@@ -431,11 +481,6 @@
       +'</div><div class="muted" style="margin-top:10px;">Notice the two indices can rank the same stock differently if NSE and BSE prices have drifted apart.</div></div>';
   }
 
-  function breakScreen(){
-    return '<div class="card" style="text-align:center; padding:50px 20px;"><h3>☕ Break Time</h3><div class="stat" style="font-size:34px;">Back in 15 minutes</div>'
-      +'<div class="muted" style="margin-top:12px;">Primary market rounds are done — IPO, FPO, and Rights/Private Placement are all allotted. When we\'re back: the secondary market opens, order types get interesting, and the regulators start watching.</div></div>';
-  }
-
   function render(){
     if(!state){
       document.getElementById('root').innerHTML = '<div class="lobby-hero"><h1>CAPITAL MARKETS LIVE</h1><div class="muted">Connecting…</div></div>';
@@ -443,15 +488,15 @@
     }
     const root = document.getElementById('root');
     let body = '';
-    if(!myRole){ body = lobbyScreen(); }
-    else if(state.phase==='break'){ body = breakScreen(); }
-    else if(myRole==='facilitator'){ body = (state.phase==='indices'?indicesView():'') + facilitatorView(); }
-    else if(myRole==='A'){ body = companyAView(); }
-    else if(myRole==='B'){ body = companyBView(); }
-    else if(myRole==='C'){ body = companyCView(); }
-    else if(['1','2','3','4','5','6'].includes(myRole)){ body = (state.phase==='indices'?indicesView():'') + investorView(myRole); }
-    else if(myRole==='NSE'||myRole==='BSE'){ body = (state.phase==='indices'?indicesView():'') + exchangeView(myRole); }
-    else if(myRole==='REG'){ body = regulatoryView(); }
+    const common = myRole ? roleDetailsCard() + eventBanner() + eligibilityRoster() : '';
+    if(!myRole){ body = loginScreen(); }
+    else if(myRole==='facilitator'){ body = common + (state.phase==='indices'?indicesView():'') + facilitatorView(); }
+    else if(myRole==='A'){ body = common + companyAView(); }
+    else if(myRole==='B'){ body = common + companyBView(); }
+    else if(myRole==='C'){ body = common + companyCView(); }
+    else if(['1','2','3','4','5','6'].includes(myRole)){ body = common + (state.phase==='indices'?indicesView():'') + investorView(myRole); }
+    else if(myRole==='NSE'||myRole==='BSE'){ body = common + (state.phase==='indices'?indicesView():'') + exchangeView(myRole); }
+    else if(myRole==='REG'){ body = common + regulatoryView(); }
     root.innerHTML = ticker() + topbar() + '<div class="wrap">'+body+'</div>' + guideModal();
   }
 
