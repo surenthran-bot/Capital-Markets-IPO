@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Capital Markets Live</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  :root {
+    --bg: #0b0f0d; --panel: #121815; --panel-2: #171f1b; --line: #26332c;
+    --amber: #ffb648; --green: #37c26d; --red: #ef5b5b; --blue:#5aa9e6;
+    --text: #e9efe9; --muted: #8aa093;
+    --mono: 'IBM Plex Mono','Courier New',monospace; --sans:'Inter',system-ui,sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html,body { margin:0; }
+  body { background: var(--bg); color: var(--text); font-family: var(--sans); min-height:100vh; padding-bottom:40px; }
+  .ticker-wrap { background:#000; border-bottom:1px solid var(--line); overflow:hidden; white-space:nowrap; padding:8px 0; }
+  .ticker { display:inline-block; font-family:var(--mono); font-size:14px; padding-left:100%; animation: scroll 22s linear infinite; }
+  @keyframes scroll { 0%{transform:translateX(0);} 100%{transform:translateX(-100%);} }
+  .topbar { display:flex; align-items:center; justify-content:space-between; padding:14px 20px; border-bottom:1px solid var(--line); flex-wrap:wrap; gap:10px; position:sticky; top:0; background:var(--bg); z-index:5;}
+  .brand { font-family:var(--mono); font-weight:700; font-size:15px; color:var(--amber); }
+  .brand span { color:var(--muted); font-weight:400; }
+  .conn-dot { display:inline-block; width:8px; height:8px; border-radius:50%; margin-right:6px; }
+  .conn-ok { background: var(--green); }
+  .conn-bad { background: var(--red); }
+  .phase-badge { font-family:var(--mono); font-size:12px; padding:5px 12px; border:1px solid var(--amber); border-radius:3px; color:var(--amber); text-transform:uppercase; letter-spacing:1px; }
+  .role-select { background:var(--panel); border:1px solid var(--line); color:var(--text); padding:6px 10px; border-radius:4px; font-size:13px; }
+  .wrap { max-width:1150px; margin:0 auto; padding:20px; }
+  .card { background:var(--panel); border:1px solid var(--line); border-radius:6px; padding:18px 20px; margin-bottom:16px; }
+  .card h3 { margin:0 0 12px; font-size:14px; text-transform:uppercase; letter-spacing:1px; color:var(--amber); font-family:var(--mono); }
+  .card h4 { margin:14px 0 8px; font-size:13px; color:var(--muted); text-transform:uppercase; letter-spacing:0.5px; }
+  .row { display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+  .grid2 { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+  @media (max-width:800px){ .grid2 { grid-template-columns:1fr; } }
+  input, select, textarea { background:var(--panel-2); border:1px solid var(--line); color:var(--text); padding:8px 10px; border-radius:4px; font-size:14px; font-family:var(--sans); }
+  input[type=number]{ width:100px; }
+  button { background:var(--amber); color:#101410; border:none; padding:9px 16px; border-radius:4px; font-weight:600; cursor:pointer; font-size:13px; }
+  button:hover{ filter:brightness(1.08); }
+  button.secondary{ background:transparent; border:1px solid var(--line); color:var(--text); }
+  button.danger{ background:var(--red); color:#fff; }
+  button.blue{ background:var(--blue); color:#08131c; }
+  button:disabled{ opacity:0.35; cursor:not-allowed; }
+  table{ width:100%; border-collapse:collapse; font-size:13px; }
+  th,td{ text-align:left; padding:7px 8px; border-bottom:1px solid var(--line); }
+  th{ color:var(--muted); font-weight:600; text-transform:uppercase; font-size:11px; letter-spacing:0.5px; }
+  .stat{ font-family:var(--mono); font-size:22px; }
+  .stat-label{ font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:0.5px; }
+  .pill{ display:inline-block; padding:2px 8px; border-radius:10px; font-size:11px; font-family:var(--mono); }
+  .pill-buy{ background:rgba(55,194,109,0.15); color:var(--green); }
+  .pill-sell{ background:rgba(239,91,91,0.15); color:var(--red); }
+  .pill-pending{ background:rgba(255,182,72,0.15); color:var(--amber); }
+  .pill-settled{ background:rgba(55,194,109,0.15); color:var(--green); }
+  .event-card{ border:1px solid var(--line); border-radius:6px; padding:14px; margin-bottom:10px; background:var(--panel-2); }
+  .event-card.done{ opacity:0.4; }
+  .banner{ background:rgba(239,91,91,0.12); border:1px solid var(--red); color:var(--red); padding:10px 14px; border-radius:5px; margin-bottom:14px; font-family:var(--mono); font-size:13px; }
+  .banner.info{ background:rgba(90,169,230,0.12); border-color:var(--blue); color:var(--blue); }
+  .muted{ color:var(--muted); font-size:12.5px; }
+  .lobby-hero{ text-align:center; padding:50px 20px 20px; }
+  .lobby-hero h1{ font-family:var(--mono); font-size:28px; color:var(--amber); margin-bottom:6px; }
+  .role-grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:10px; max-width:820px; margin:24px auto 0; }
+  .role-btn{ background:var(--panel); border:1px solid var(--line); padding:14px 10px; border-radius:6px; cursor:pointer; text-align:center; }
+  .role-btn:hover{ border-color:var(--amber); }
+  .role-btn .r-title{ font-weight:600; font-size:13px; }
+  .role-btn .r-sub{ font-size:11px; color:var(--muted); margin-top:3px; }
+  .modal-bg{ position:fixed; inset:0; background:rgba(0,0,0,0.7); z-index:50; display:flex; align-items:flex-start; justify-content:center; overflow:auto; padding:40px 16px; }
+  .modal{ background:var(--panel); border:1px solid var(--line); border-radius:8px; max-width:800px; width:100%; padding:26px; }
+  .agenda-item{ display:flex; gap:12px; padding:8px 0; border-bottom:1px solid var(--line); align-items:baseline;}
+  .agenda-item .t{ font-family:var(--mono); color:var(--muted); font-size:12px; min-width:70px; }
+  .type-hint{ font-size:11px; color:var(--muted); margin-top:4px; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script src="/socket.io/socket.io.js"></script>
+<script>
+(function(){
+  const PHASES = ['lobby','ipo','fpo','rights','allotment','break','secondary','indices','sebi','rbi','global','finalindex','debrief'];
+  const PHASE_LABEL = {
+    lobby:'Lobby', ipo:'Round 1 · IPO (Co. A)', fpo:'Round 2 · FPO (Co. B)', rights:'Round 3 · Rights + Private Placement (Co. C)',
+    allotment:'Allotment Results', break:'☕ Break', secondary:'Round 4 · Secondary Market', indices:'Round 5 · NSE vs BSE & Indices',
+    sebi:'Round 6 · SEBI Hat', rbi:'Round 7 · RBI Hat', global:'Round 8 · Global Regulators Hat',
+    finalindex:'Final Index Check', debrief:'Debrief & Awards',
+  };
+  const AGENDA = [
+    ['0:00–0:08','Lobby & role briefing'], ['0:08–0:15','Round 1 — IPO book-building (Company A)'],
+    ['0:15–0:20','Round 2 — FPO fixed-price issue (Company B)'], ['0:20–0:28','Round 3 — Rights Issue + Private Placement (Company C)'],
+    ['0:28–0:32','Allotment results announced'], ['0:32–0:47','Break'],
+    ['0:47–1:07','Round 4 — Secondary market: market/limit/stop/bracket orders'],
+    ['1:07–1:15','Round 5 — NSE vs BSE comparison + Nifty/Sensex construction'],
+    ['1:15–1:25','Round 6 — SEBI hat: investor protection event'],
+    ['1:25–1:33','Round 7 — RBI hat: monetary policy event'],
+    ['1:33–1:41','Round 8 — Global Regulators hat: cross-border event'],
+    ['1:41–1:50','Final index check'], ['1:50–2:00','Debrief & awards'],
+  ];
+
+  let myRole = null, state = null, showGuide = false, connected = false;
+  const socket = io();
+  socket.on('connect', ()=>{ connected=true; render(); });
+  socket.on('disconnect', ()=>{ connected=false; render(); });
+  socket.on('state', (s)=>{
+    state = s;
+    const ae = document.activeElement;
+    if (ae && (ae.tagName==='INPUT' || ae.tagName==='SELECT' || ae.tagName==='TEXTAREA')) { pendingRender = true; }
+    else { render(); }
+  });
+  let pendingRender = false;
+  document.addEventListener('focusout', ()=>{ if(pendingRender){ pendingRender=false; render(); } }, true);
+
+  function fmt(n){ return '\u20b9'+Math.round(n).toLocaleString('en-IN'); }
+  function midPrice(cid){
+    const n=state.prices.NSE[cid], b=state.prices.BSE[cid];
+    if (n && b) return (n+b)/2; return n||b||null;
+  }
+  function portfolioValue(id){
+    const inv = state.investors[id];
+    const pa = midPrice('A')||0, pb = midPrice('B')||0, pc = midPrice('C')||0;
+    return inv.cash + inv.holdings.A*pa + inv.holdings.B*pb + inv.holdings.C*pc;
+  }
+
+  window.setPhase = function(p){ socket.emit('setPhase', p); };
+  window.toggleGuide = function(){ showGuide = !showGuide; render(); };
+  window.chooseRole = function(r){ myRole = r; render(); };
+  window.changeRole = function(sel){ myRole = sel.value || null; render(); };
+
+  const draftCompanies = { A:{}, B:{}, C:{} };
+  window.setCompanyField = function(cid, field, val){ draftCompanies[cid][field] = val; };
+  window.saveCompanyEdits = function(cid){ socket.emit('updateCompany', { id: cid, patch: draftCompanies[cid] }); draftCompanies[cid] = {}; };
+
+  window.submitIPOBid = function(id){
+    const qty = Number(document.getElementById('ipo-qty-'+id).value);
+    const price = Number(document.getElementById('ipo-price-'+id).value);
+    if(!qty||!price) return;
+    socket.emit('submitIPOBid', { investor:id, qty, price });
+  };
+  window.submitFPOBid = function(id){
+    const qty = Number(document.getElementById('fpo-qty-'+id).value);
+    if(!qty) return;
+    socket.emit('submitFPOBid', { investor:id, qty });
+  };
+  window.submitRightsBid = function(id){
+    const qty = Number(document.getElementById('rights-qty-'+id).value);
+    if(!qty) return;
+    socket.emit('submitRightsBid', { investor:id, qty });
+  };
+  window.submitQIBBid = function(id){
+    const qty = Number(document.getElementById('qib-qty-'+id).value);
+    if(!qty) return;
+    socket.emit('submitQIBBid', { investor:id, qty });
+  };
+  window.computeAllotment = function(){ socket.emit('computeAllotment'); };
+
+  window.orderTypeChanged = function(id){
+    const type = document.getElementById('ord-type-'+id).value;
+    const box = document.getElementById('ord-extra-'+id);
+    let html = '';
+    if(type==='market'){ html = '<div class="type-hint">Executes immediately at the best available price. No price needed.</div>'; }
+    else if(type==='limit'){ html = '<input type="number" id="ord-price-'+id+'" placeholder="Limit price ₹"><div class="type-hint">Waits in the book until matched at this price or better.</div>'; }
+    else if(type==='stop'){ html = '<input type="number" id="ord-stop-'+id+'" placeholder="Trigger price ₹"><div class="type-hint">Becomes a market order once price crosses this trigger.</div>'; }
+    else if(type==='stoplimit'){ html = '<input type="number" id="ord-stop-'+id+'" placeholder="Trigger ₹"><input type="number" id="ord-price-'+id+'" placeholder="Limit price ₹"><div class="type-hint">Becomes a limit order at the given price once the trigger is crossed.</div>'; }
+    else if(type==='bracket'){ html = '<input type="number" id="ord-price-'+id+'" placeholder="Entry price ₹ (blank=market)"><input type="number" id="ord-target-'+id+'" placeholder="Target ₹"><input type="number" id="ord-stop-'+id+'" placeholder="Stop-loss ₹"><div class="type-hint">Buy entry + auto target/stop-loss exit — whichever hits first cancels the other.</div>'; }
+    box.innerHTML = html;
+  };
+
+  window.submitOrder = function(id){
+    const company = document.getElementById('ord-co-'+id).value;
+    const side = document.getElementById('ord-side-'+id).value;
+    const type = document.getElementById('ord-type-'+id).value;
+    const qty = Number(document.getElementById('ord-qty-'+id).value);
+    if(!qty) return;
+    const priceEl = document.getElementById('ord-price-'+id);
+    const stopEl = document.getElementById('ord-stop-'+id);
+    const targetEl = document.getElementById('ord-target-'+id);
+    socket.emit('submitOrder', {
+      investor:id, company, side, type, qty,
+      price: priceEl ? (Number(priceEl.value)||null) : null,
+      stopPrice: stopEl ? (Number(stopEl.value)||null) : null,
+      targetPrice: targetEl ? (Number(targetEl.value)||null) : null,
+    });
+  };
+  window.runMatching = function(exch){ socket.emit('runMatching', exch); };
+  window.settleTrades = function(){ socket.emit('settleTrades'); };
+  window.triggerRegEvent = function(bucket, id){ socket.emit('triggerRegEvent', { bucket, id }); };
+  window.freezeSelected = function(){
+    const id = document.getElementById('freeze-select').value;
+    socket.emit('freezeSelected', { id });
+  };
+  window.liftHalts = function(){ socket.emit('liftHalts'); };
+  window.unfreezeAll = function(){ socket.emit('unfreezeAll'); };
+  window.resetGame = function(){
+    if(!confirm('Reset the entire simulation for all 12 teams?')) return;
+    socket.emit('resetGame');
+  };
+
+  // ---------- RENDER ----------
+  function ticker(){
+    const items=[];
+    ['A','B','C'].forEach(cid=>{
+      const co=state.companies[cid]; const n=state.prices.NSE[cid], b=state.prices.BSE[cid];
+      items.push(co.name+' ('+cid+') &nbsp; NSE:'+(n?fmt(n):'—')+' &nbsp; BSE:'+(b?fmt(b):'—'));
+    });
+    const txt = items.join(' &nbsp;|&nbsp; ');
+    return '<div class="ticker-wrap"><div class="ticker">'+txt+' &nbsp;|&nbsp; '+txt+'</div></div>';
+  }
+
+  function guideModal(){
+    if(!showGuide) return '';
+    return '<div class="modal-bg" onclick="if(event.target===this) toggleGuide()"><div class="modal">'
+      +'<h3 style="color:var(--amber); font-family:var(--mono); margin-top:0;">Full Rulebook &amp; Agenda</h3>'
+      +AGENDA.map(a=>'<div class="agenda-item"><div class="t">'+a[0]+'</div><div>'+a[1]+'</div></div>').join('')
+      +'<div style="margin-top:16px;" class="muted">3 companies raise capital in 3 different ways (Round 1–3), then the market opens for trading (Round 4), then regulators step in (Rounds 6–8). Your role stays the same throughout — check the phase badge top-right to know what to do right now.</div>'
+      +'<button class="secondary" style="margin-top:16px;" onclick="toggleGuide()">Close</button></div></div>';
+  }
+
+  function topbar(){
+    const roleNames = { facilitator:'Facilitator', A:'Company A (IPO)', B:'Company B (FPO)', C:'Company C (Rights/QIB)',
+      '1':'Investor Desk 1','2':'Investor Desk 2','3':'Investor Desk 3','4':'Investor Desk 4','5':'Investor Desk 5','6':'Investor Desk 6',
+      NSE:'NSE Exchange Desk', BSE:'BSE Exchange Desk', REG:'Regulatory Council' };
+    return '<div class="topbar">'
+      +'<div class="brand">CAPITAL MARKETS LIVE <span>| 12-team simulation</span></div>'
+      +'<div class="row">'
+      +'<span class="muted"><span class="conn-dot '+(connected?'conn-ok':'conn-bad')+'"></span>'+(connected?'Live':'Reconnecting…')+'</span>'
+      +'<button class="secondary" onclick="toggleGuide()">📋 Guide</button>'
+      +'<span class="phase-badge">'+PHASE_LABEL[state.phase]+'</span>'
+      +'<select class="role-select" onchange="changeRole(this)"><option value="">Switch role…</option>'
+      +Object.keys(roleNames).map(k=>'<option value="'+k+'" '+(myRole===k?'selected':'')+'>'+roleNames[k]+'</option>').join('')
+      +'</select></div></div>';
+  }
+
+  function lobbyScreen(){
+    const roles = [
+      ['facilitator','Facilitator','Run the sim'], ['A','Company A','IPO issuer'], ['B','Company B','FPO issuer'], ['C','Company C','Rights + Private Placement'],
+      ['1','Investor Desk 1','NSE'],['2','Investor Desk 2','NSE · QIB'],['3','Investor Desk 3','NSE · QIB · FII'],
+      ['4','Investor Desk 4','BSE'],['5','Investor Desk 5','BSE · QIB · FII'],['6','Investor Desk 6','BSE · Retail'],
+      ['NSE','NSE Exchange Desk','Order matching + Nifty'],['BSE','BSE Exchange Desk','Order matching + Sensex'],
+      ['REG','Regulatory Council','SEBI + RBI + Global — 3 hats'],
+    ];
+    return '<div class="lobby-hero"><h1>CAPITAL MARKETS LIVE</h1><div class="muted">A 2-hour, 12-team simulation — from IPO to index, with regulators watching</div>'
+      +'<button style="margin-top:14px;" onclick="toggleGuide()">📋 View Full Agenda</button>'
+      +'<div class="role-grid">'+roles.map(r=>'<div class="role-btn" onclick="chooseRole(\''+r[0]+'\')"><div class="r-title">'+r[1]+'</div><div class="r-sub">'+r[2]+'</div></div>').join('')+'</div></div>';
+  }
+
+  function facilitatorView(){
+    const board = Object.keys(state.investors).map(id=>({id,val:portfolioValue(id)})).sort((a,b)=>b.val-a.val);
+    return '<div class="card"><h3>Phase Control — click to move the whole room</h3><div class="row">'
+      +PHASES.map(p=>'<button class="'+(p===state.phase?'':'secondary')+'" onclick="setPhase(\''+p+'\')">'+PHASE_LABEL[p]+'</button>').join('')
+      +'</div><div class="row" style="margin-top:12px;"><button class="blue" onclick="computeAllotment()">Compute IPO+FPO+Rights/QIB Allotment</button>'
+      +'<button class="blue" onclick="settleTrades()">Run T+1 Settlement</button>'
+      +'<button class="danger" onclick="resetGame()">Reset Simulation</button></div></div>'
+      +'<div class="card"><h3>Leaderboard — Portfolio Value</h3><table><tr><th>Rank</th><th>Desk</th><th>Exch</th><th>Tags</th><th>Value</th></tr>'
+      +board.map((b,i)=>{ const inv=state.investors[b.id]; const tags=[inv.qib?'QIB':null,inv.fii?'FII':null,inv.existingC?'Holder-C':null].filter(Boolean).join(', ')||'Retail';
+        return '<tr><td>'+(i+1)+'</td><td>Desk '+b.id+'</td><td>'+inv.exchange+'</td><td class="muted">'+tags+'</td><td>'+fmt(b.val)+'</td></tr>'; }).join('')
+      +'</table></div>'
+      +'<div class="card"><h3>Event &amp; Trade Log</h3><div class="muted">Events: '+(state.eventLog.length?state.eventLog.map(e=>e.text).join(' · '):'none yet')+'</div>'
+      +'<div class="muted" style="margin-top:6px;">Trades executed: '+state.trades.length+' &nbsp;|&nbsp; Pending settlement: '+state.trades.filter(t=>t.settlement==='pending').length+'</div></div>';
+  }
+
+  function companyAView(){
+    const co=state.companies.A; const editable = state.phase==='lobby';
+    const d = draftCompanies.A;
+    return '<div class="card"><h3>Company A — '+co.name+' (IPO)</h3>'
+      +(editable ? '<div class="muted">IPO = your very first sale of shares to the public. Price is discovered through book-building — investors bid within your band.</div>'
+        +'<div class="row" style="margin-top:10px;"><label class="muted">Band ₹<input type="number" value="'+(d.low!==undefined?d.low:co.low)+'" oninput="setCompanyField(\'A\',\'low\',this.value)"> – <input type="number" value="'+(d.high!==undefined?d.high:co.high)+'" oninput="setCompanyField(\'A\',\'high\',this.value)"></label></div>'
+        +'<div class="row" style="margin-top:8px;"><label class="muted">Shares offered <input type="number" value="'+(d.shares!==undefined?d.shares:co.shares)+'" oninput="setCompanyField(\'A\',\'shares\',this.value)"></label></div>'
+        +'<button style="margin-top:10px;" onclick="saveCompanyEdits(\'A\')">Save</button>'
+      : '<table><tr><td>Price band</td><td>₹'+co.low+' – ₹'+co.high+'</td></tr><tr><td>Shares offered</td><td>'+co.shares.toLocaleString('en-IN')+'</td></tr>'
+        +'<tr><td>Use of funds</td><td>'+co.useOfFunds+'</td></tr><tr><td>Cut-off price</td><td>'+(co.cutoff?fmt(co.cutoff):'Pending')+'</td></tr>'
+        +'<tr><td>Last traded NSE/BSE</td><td>'+(state.prices.NSE.A?fmt(state.prices.NSE.A):'—')+' / '+(state.prices.BSE.A?fmt(state.prices.BSE.A):'—')+'</td></tr></table>')
+      +'</div>';
+  }
+  function companyBView(){
+    const co=state.companies.B; const editable = state.phase==='lobby';
+    const d = draftCompanies.B;
+    return '<div class="card"><h3>Company B — '+co.name+' (FPO)</h3>'
+      +(editable ? '<div class="muted">FPO = you\'re already listed and raising fresh capital. Unlike an IPO there\'s no price discovery — you price it at a discount to your existing market price.</div>'
+        +'<div class="row" style="margin-top:10px;"><label class="muted">Current market price ₹<input type="number" value="'+(d.marketPrice!==undefined?d.marketPrice:co.marketPrice)+'" oninput="setCompanyField(\'B\',\'marketPrice\',this.value)"></label></div>'
+        +'<div class="row" style="margin-top:8px;"><label class="muted">Discount % <input type="number" value="'+(d.discountPct!==undefined?d.discountPct:co.discountPct)+'" oninput="setCompanyField(\'B\',\'discountPct\',this.value)"></label></div>'
+        +'<div class="row" style="margin-top:8px;"><label class="muted">Shares offered <input type="number" value="'+(d.shares!==undefined?d.shares:co.shares)+'" oninput="setCompanyField(\'B\',\'shares\',this.value)"></label></div>'
+        +'<button style="margin-top:10px;" onclick="saveCompanyEdits(\'B\')">Save</button>'
+      : '<table><tr><td>Reference market price</td><td>'+fmt(co.marketPrice)+'</td></tr><tr><td>Issue price ('+co.discountPct+'% discount)</td><td>'+(co.issuePrice?fmt(co.issuePrice):'Pending')+'</td></tr>'
+        +'<tr><td>Shares offered</td><td>'+co.shares.toLocaleString('en-IN')+'</td></tr><tr><td>Use of funds</td><td>'+co.useOfFunds+'</td></tr>'
+        +'<tr><td>Last traded NSE/BSE</td><td>'+(state.prices.NSE.B?fmt(state.prices.NSE.B):'—')+' / '+(state.prices.BSE.B?fmt(state.prices.BSE.B):'—')+'</td></tr></table>')
+      +'</div>';
+  }
+  function companyCView(){
+    const co=state.companies.C; const editable = state.phase==='lobby';
+    const d = draftCompanies.C;
+    return '<div class="card"><h3>Company C — '+co.name+' (Rights Issue + Private Placement)</h3>'
+      +(editable ? '<div class="muted">Two restricted routes at once: a Rights Issue (only for your existing shareholders, at a discount) and a Private Placement/QIP (only for Qualified Institutional Buyers). Neither is open to the general public — that\'s what makes them different from an IPO/FPO.</div>'
+        +'<div class="row" style="margin-top:10px;"><label class="muted">Rights price ₹<input type="number" value="'+(d.rightsPrice!==undefined?d.rightsPrice:co.rightsPrice)+'" oninput="setCompanyField(\'C\',\'rightsPrice\',this.value)"></label>'
+        +'<label class="muted">Rights shares <input type="number" value="'+(d.rightsShares!==undefined?d.rightsShares:co.rightsShares)+'" oninput="setCompanyField(\'C\',\'rightsShares\',this.value)"></label></div>'
+        +'<div class="row" style="margin-top:8px;"><label class="muted">QIB price ₹<input type="number" value="'+(d.qibPrice!==undefined?d.qibPrice:co.qibPrice)+'" oninput="setCompanyField(\'C\',\'qibPrice\',this.value)"></label>'
+        +'<label class="muted">QIB shares <input type="number" value="'+(d.qibShares!==undefined?d.qibShares:co.qibShares)+'" oninput="setCompanyField(\'C\',\'qibShares\',this.value)"></label></div>'
+        +'<button style="margin-top:10px;" onclick="saveCompanyEdits(\'C\')">Save</button>'
+      : '<table><tr><td>Rights price (existing holders only)</td><td>'+fmt(co.rightsPrice)+'</td></tr><tr><td>Rights shares on offer</td><td>'+co.rightsShares.toLocaleString('en-IN')+'</td></tr>'
+        +'<tr><td>Private placement (QIB) price</td><td>'+fmt(co.qibPrice)+'</td></tr><tr><td>QIB shares on offer</td><td>'+co.qibShares.toLocaleString('en-IN')+'</td></tr>'
+        +'<tr><td>Use of funds</td><td>'+co.useOfFunds+'</td></tr>'
+        +'<tr><td>Last traded NSE/BSE</td><td>'+(state.prices.NSE.C?fmt(state.prices.NSE.C):'—')+' / '+(state.prices.BSE.C?fmt(state.prices.BSE.C):'—')+'</td></tr></table>')
+      +'</div>';
+  }
+
+  function investorView(id){
+    const inv = state.investors[id];
+    const pa=midPrice('A')||0, pb=midPrice('B')||0, pc=midPrice('C')||0;
+    const val = portfolioValue(id);
+    const frozen = state.frozenInvestors.includes(id);
+    const tags = [inv.qib?'Qualified Institutional Buyer':null, inv.fii?'Foreign Institutional Investor':null, inv.existingC?'Existing shareholder of Company C':null].filter(Boolean);
+    let body = '<div class="card"><h3>Investor Desk '+id+' <span class="muted">— routes to '+inv.exchange+'</span></h3>'
+      +(tags.length?'<div class="muted">Tags: '+tags.join(' · ')+'</div>':'<div class="muted">Tags: Retail investor</div>')
+      +'<div class="grid2" style="margin-top:12px;"><div><div class="stat-label">Cash</div><div class="stat">'+fmt(inv.cash)+'</div></div><div><div class="stat-label">Portfolio Value</div><div class="stat">'+fmt(val)+'</div></div></div>'
+      +'<table style="margin-top:12px;"><tr><th>Company</th><th>Holding</th><th>Last Price</th><th>Value</th></tr>'
+      +'<tr><td>'+state.companies.A.name+' (A)</td><td>'+inv.holdings.A+'</td><td>'+(pa?fmt(pa):'—')+'</td><td>'+fmt(inv.holdings.A*pa)+'</td></tr>'
+      +'<tr><td>'+state.companies.B.name+' (B)</td><td>'+inv.holdings.B+'</td><td>'+(pb?fmt(pb):'—')+'</td><td>'+fmt(inv.holdings.B*pb)+'</td></tr>'
+      +'<tr><td>'+state.companies.C.name+' (C)</td><td>'+inv.holdings.C+'</td><td>'+(pc?fmt(pc):'—')+'</td><td>'+fmt(inv.holdings.C*pc)+'</td></tr></table>'
+      +(frozen?'<div class="banner" style="margin-top:12px;">Your desk is FROZEN by SEBI this round.</div>':'')+'</div>';
+
+    if(state.phase==='ipo'){
+      body += '<div class="card"><h3>IPO Bid — Company A</h3><div class="muted">Band ₹'+state.companies.A.low+'–₹'+state.companies.A.high+'</div>'
+        +'<div class="row" style="margin-top:8px;"><input type="number" id="ipo-qty-'+id+'" placeholder="Qty"><input type="number" id="ipo-price-'+id+'" placeholder="Bid price ₹"><button onclick="submitIPOBid(\''+id+'\')">Submit Bid</button></div>'
+        +'<h4>Your Bids So Far</h4><table><tr><th>Qty</th><th>Price</th></tr>'+state.bidsIPO.filter(b=>b.investor===id).map(b=>'<tr><td>'+b.qty+'</td><td>'+fmt(b.price)+'</td></tr>').join('')+'</table></div>';
+    }
+    if(state.phase==='fpo'){
+      body += '<div class="card"><h3>FPO Bid — Company B</h3><div class="muted">Fixed issue price at a '+state.companies.B.discountPct+'% discount to ₹'+state.companies.B.marketPrice+'. Open to everyone — just say how many shares you want.</div>'
+        +'<div class="row" style="margin-top:8px;"><input type="number" id="fpo-qty-'+id+'" placeholder="Qty"><button onclick="submitFPOBid(\''+id+'\')">Submit Bid</button></div>'
+        +'<h4>Your Bid</h4><table><tr><th>Qty</th></tr>'+state.bidsFPO.filter(b=>b.investor===id).map(b=>'<tr><td>'+b.qty+'</td></tr>').join('')+'</table></div>';
+    }
+    if(state.phase==='rights'){
+      body += '<div class="card"><h3>Company C — Restricted Issue</h3>';
+      if(inv.existingC){
+        const entitlement = inv.holdings.C * state.companies.C.rightsRatio;
+        body += '<h4>Rights Issue (you qualify — existing shareholder)</h4><div class="muted">Entitlement: up to '+entitlement+' shares at ₹'+state.companies.C.rightsPrice+' each.</div>'
+          +'<div class="row" style="margin-top:8px;"><input type="number" id="rights-qty-'+id+'" placeholder="Qty (max '+entitlement+')"><button onclick="submitRightsBid(\''+id+'\')">Apply</button></div>';
+      } else {
+        body += '<div class="banner info">You don\'t hold Company C shares yet, so you\'re not eligible for this Rights Issue — only existing shareholders are.</div>';
+      }
+      if(inv.qib){
+        body += '<h4>Private Placement / QIP (you qualify — QIB)</h4><div class="muted">Negotiated price ₹'+state.companies.C.qibPrice+' per share, institutional-only.</div>'
+          +'<div class="row" style="margin-top:8px;"><input type="number" id="qib-qty-'+id+'" placeholder="Qty"><button onclick="submitQIBBid(\''+id+'\')">Apply</button></div>';
+      } else {
+        body += '<div class="banner info">You\'re not tagged as a Qualified Institutional Buyer, so the Private Placement tranche isn\'t open to you.</div>';
+      }
+      if(!inv.existingC && !inv.qib){
+        body += '<div class="muted" style="margin-top:8px;">This is the point of a restricted issue — you\'ll get your first chance to buy Company C once it opens on the secondary market.</div>';
+      }
+      body += '</div>';
+    }
+    if(state.phase==='secondary' || state.phase==='sebi' || state.phase==='rbi' || state.phase==='global'){
+      body += '<div class="card"><h3>Place Order — '+inv.exchange+'</h3>'
+        +(state.haltedCompanies.length?'<div class="banner">Halted right now: '+state.haltedCompanies.map(c=>state.companies[c].name).join(', ')+'</div>':'')
+        +'<div class="row">'
+        +'<select id="ord-co-'+id+'"><option value="A">'+state.companies.A.name+' (A)</option><option value="B">'+state.companies.B.name+' (B)</option><option value="C">'+state.companies.C.name+' (C)</option></select>'
+        +'<select id="ord-side-'+id+'"><option value="buy">Buy</option><option value="sell">Sell</option></select>'
+        +'<select id="ord-type-'+id+'" onchange="orderTypeChanged(\''+id+'\')"><option value="market">Market</option><option value="limit">Limit</option><option value="stop">Stop-loss</option><option value="stoplimit">Stop-limit</option><option value="bracket">Bracket</option></select>'
+        +'<input type="number" id="ord-qty-'+id+'" placeholder="Qty">'
+        +'</div><div id="ord-extra-'+id+'" class="row" style="margin-top:8px;"></div>'
+        +'<button style="margin-top:10px;" '+(frozen?'disabled':'')+' onclick="submitOrder(\''+id+'\')">Submit Order</button></div>'
+        +'<div class="card"><h3>Your Recent Fills</h3><table><tr><th>Time</th><th>Exch</th><th>Co</th><th>Qty</th><th>Price</th><th>Side</th><th>Settlement</th></tr>'
+        +state.trades.filter(t=>t.buyer===id||t.seller===id).slice(-8).reverse().map(t=>'<tr><td>'+t.time+'</td><td>'+t.exchange+'</td><td>'+t.company+'</td><td>'+t.qty+'</td><td>'+fmt(t.price)+'</td><td>'+(t.buyer===id?'<span class="pill pill-buy">BUY</span>':'<span class="pill pill-sell">SELL</span>')+'</td><td><span class="pill '+(t.settlement==='pending'?'pill-pending':'pill-settled')+'">'+t.settlement+'</span></td></tr>').join('')+'</table></div>';
+    }
+    if(state.phase==='finalindex'||state.phase==='debrief'){
+      body += '<div class="card"><h3>Final Standing</h3><div class="stat">'+fmt(val)+'</div><div class="muted">Cash '+fmt(inv.cash)+' + Holdings '+fmt(inv.holdings.A*pa+inv.holdings.B*pb+inv.holdings.C*pc)+'</div></div>';
+    }
+    return body;
+  }
+
+  function exchangeView(exch){
+    const other = exch==='NSE'?'BSE':'NSE';
+    const orders = state.orders[exch];
+    const rows=(side)=>orders.filter(o=>o.side===side && o.remaining>0).map(o=>'<tr><td>Desk '+o.investor+'</td><td>'+o.company+'</td><td>'+o.type+'</td><td>'+o.remaining+'</td><td>'+(o.price?fmt(o.price):(o.stopPrice?'trig @'+fmt(o.stopPrice):'MKT'))+'</td></tr>').join('') || '<tr><td colspan=5 class="muted">None pending</td></tr>';
+    const indexName = exch==='NSE' ? 'Nifty' : 'Sensex';
+    return '<div class="card"><h3>'+exch+' Exchange Desk</h3><div class="row"><button onclick="runMatching(\''+exch+'\')">Run Matching</button></div>'
+      +'<div class="grid2" style="margin-top:14px;"><div><h4>Buy Orders</h4><table><tr><th>Desk</th><th>Co</th><th>Type</th><th>Qty</th><th>Price</th></tr>'+rows('buy')+'</table></div>'
+      +'<div><h4>Sell Orders</h4><table><tr><th>Desk</th><th>Co</th><th>Type</th><th>Qty</th><th>Price</th></tr>'+rows('sell')+'</table></div></div>'
+      +'<h4 style="margin-top:16px;">Last Traded Price ('+exch+' vs '+other+')</h4><table><tr><th>Company</th><th>'+exch+'</th><th>'+other+'</th></tr>'
+      +['A','B','C'].map(cid=>'<tr><td>'+state.companies[cid].name+' ('+cid+')</td><td>'+(state.prices[exch][cid]?fmt(state.prices[exch][cid]):'—')+'</td><td>'+(state.prices[other][cid]?fmt(state.prices[other][cid]):'—')+'</td></tr>').join('')
+      +'</table><div class="muted" style="margin-top:6px;">Notice any gap vs '+other+'? That\'s the same stock, two venues — a live arbitrage opportunity.</div>'
+      +'<h4 style="margin-top:16px;">Trade Log — '+exch+'</h4><table><tr><th>Time</th><th>Co</th><th>Qty</th><th>Price</th><th>Settlement</th></tr>'
+      +state.trades.filter(t=>t.exchange===exch).slice(-10).reverse().map(t=>'<tr><td>'+t.time+'</td><td>'+t.company+'</td><td>'+t.qty+'</td><td>'+fmt(t.price)+'</td><td><span class="pill '+(t.settlement==='pending'?'pill-pending':'pill-settled')+'">'+t.settlement+'</span></td></tr>').join('')+'</table>'
+      +'<div class="muted" style="margin-top:8px;">You are also the '+indexName+' index desk for Round 5 — check the Indices round for constituent data.</div></div>';
+  }
+
+  function regulatoryView(){
+    let body = '<div class="card"><h3>Regulatory Council — Three Hats</h3><div class="muted">Wear the hat that matches the current phase. SEBI protects investors and regulates the market. RBI manages money, bonds and forex. Global regulators coordinate across borders.</div></div>';
+    if(state.phase==='sebi'){
+      body += '<div class="card"><h3>🎩 SEBI Hat — Investor Protection &amp; Market Regulation</h3>'
+        +state.sebiEvents.map(e=>'<div class="event-card '+(e.triggered?'done':'')+'"><div style="font-weight:600;">'+e.title+(e.triggered?' <span class="muted">(triggered)</span>':'')+'</div><div class="muted" style="margin:6px 0;">'+e.desc+'</div>'+(!e.triggered?'<button onclick="triggerRegEvent(\'sebiEvents\',\''+e.id+'\')">Trigger</button>':'')+'</div>').join('')
+        +'<h4>Freeze a Desk (Insider Trading)</h4><div class="row"><select id="freeze-select">'+Object.keys(state.investors).map(id=>'<option value="'+id+'">Desk '+id+'</option>').join('')+'</select><button onclick="freezeSelected()">Freeze</button><button class="secondary" onclick="unfreezeAll()">Unfreeze All</button></div>'
+        +'<div class="muted" style="margin-top:8px;">Frozen now: '+(state.frozenInvestors.length?state.frozenInvestors.join(', '):'none')+'</div>'
+        +'<h4>Halts</h4><div class="muted">Halted now: '+(state.haltedCompanies.length?state.haltedCompanies.map(c=>state.companies[c].name).join(', '):'none')+'</div><button class="secondary" style="margin-top:8px;" onclick="liftHalts()">Lift All Halts</button></div>';
+    } else if(state.phase==='rbi'){
+      body += '<div class="card"><h3>🎩 RBI Hat — Money, Bonds &amp; Forex</h3>'
+        +state.rbiEvents.map(e=>'<div class="event-card '+(e.triggered?'done':'')+'"><div style="font-weight:600;">'+e.title+(e.triggered?' <span class="muted">(triggered)</span>':'')+'</div><div class="muted" style="margin:6px 0;">'+e.desc+'</div>'+(!e.triggered?'<button onclick="triggerRegEvent(\'rbiEvents\',\''+e.id+'\')">Announce to Room</button>':'')+'</div>').join('')
+        +'</div>';
+    } else if(state.phase==='global'){
+      body += '<div class="card"><h3>🎩 Global Regulators Hat — Cross-Border Coordination</h3>'
+        +state.globalEvents.map(e=>'<div class="event-card '+(e.triggered?'done':'')+'"><div style="font-weight:600;">'+e.title+(e.triggered?' <span class="muted">(triggered)</span>':'')+'</div><div class="muted" style="margin:6px 0;">'+e.desc+'</div>'+(!e.triggered?'<button onclick="triggerRegEvent(\'globalEvents\',\''+e.id+'\')">Trigger</button>':'')+'</div>').join('')
+        +'</div>';
+    } else {
+      body += '<div class="card muted">Nothing to do right now — the room is between regulatory rounds. Use this time to review the Event Log with the facilitator.</div>';
+    }
+    body += '<div class="card"><h3>Event Log</h3><table><tr><th>Time</th><th>Event</th></tr>'+state.eventLog.slice().reverse().map(e=>'<tr><td>'+e.time+'</td><td>'+e.text+'</td></tr>').join('')+'</table></div>';
+    return body;
+  }
+
+  function indicesView(){
+    function sharesFor(cid){
+      if(cid==='A') return state.companies.A.shares;
+      if(cid==='B') return state.companies.B.shares;
+      return state.companies.C.rightsShares + state.companies.C.qibShares;
+    }
+    function buildTable(list, exch, label){
+      let combined = list.map(c=>({name:c.name, mcap:c.mcap, isNew:false}));
+      ['A','B','C'].forEach(cid=>{
+        const price = state.prices[exch][cid];
+        const mcap = price ? price*sharesFor(cid) : 0;
+        combined.push({name:state.companies[cid].name+' ('+cid+')', mcap, isNew:true});
+      });
+      combined.sort((a,b)=>b.mcap-a.mcap);
+      return '<h4>'+label+'</h4><table><tr><th>Rank</th><th>Name</th><th>Mkt Cap</th><th>Status</th></tr>'
+        +combined.map((c,i)=>'<tr style="'+(i<8?'':'opacity:.4;')+'"><td>'+(i+1)+'</td><td>'+(c.isNew?'<b>'+c.name+'</b>':c.name)+'</td><td>'+fmt(c.mcap)+'</td><td>'+(i<8?(c.isNew?'ENTERS':'Retained'):(c.isNew?'Not yet':'Dropped'))+'</td></tr>').join('')
+        +'</table>';
+    }
+    return '<div class="card"><h3>NSE vs BSE — At a Glance</h3><table><tr><th>Feature</th><th>NSE</th><th>BSE</th></tr>'
+      +'<tr><td>Founded</td><td>1992 — first fully electronic exchange in India</td><td>1875 — Asia\'s oldest stock exchange</td></tr>'
+      +'<tr><td>Flagship index</td><td>Nifty 50</td><td>Sensex (30 stocks)</td></tr>'
+      +'<tr><td>Typical trading volumes</td><td>Higher — dominant in equity derivatives</td><td>Lower volumes, large number of listed companies</td></tr>'
+      +'<tr><td>Trading mechanism</td><td>Fully electronic order-matching</td><td>Fully electronic order-matching (BOLT system)</td></tr>'
+      +'</table><div class="muted" style="margin-top:8px;">Same stock, two venues, occasionally two slightly different prices — that gap is what your exchange desks have been watching all through Round 4.</div></div>'
+      +'<div class="card"><h3>Index Construction — Free-Float Market Cap</h3><div class="grid2">'
+      +'<div>'+buildTable(state.niftyConstituents,'NSE','Nifty 50 (NSE)')+'</div>'
+      +'<div>'+buildTable(state.sensexConstituents,'BSE','Sensex (BSE)')+'</div>'
+      +'</div><div class="muted" style="margin-top:10px;">Notice the two indices can rank the same stock differently if NSE and BSE prices have drifted apart.</div></div>';
+  }
+
+  function breakScreen(){
+    return '<div class="card" style="text-align:center; padding:50px 20px;"><h3>☕ Break Time</h3><div class="stat" style="font-size:34px;">Back in 15 minutes</div>'
+      +'<div class="muted" style="margin-top:12px;">Primary market rounds are done — IPO, FPO, and Rights/Private Placement are all allotted. When we\'re back: the secondary market opens, order types get interesting, and the regulators start watching.</div></div>';
+  }
+
+  function render(){
+    if(!state){
+      document.getElementById('root').innerHTML = '<div class="lobby-hero"><h1>CAPITAL MARKETS LIVE</h1><div class="muted">Connecting…</div></div>';
+      return;
+    }
+    const root = document.getElementById('root');
+    let body = '';
+    if(!myRole){ body = lobbyScreen(); }
+    else if(state.phase==='break'){ body = breakScreen(); }
+    else if(myRole==='facilitator'){ body = (state.phase==='indices'?indicesView():'') + facilitatorView(); }
+    else if(myRole==='A'){ body = companyAView(); }
+    else if(myRole==='B'){ body = companyBView(); }
+    else if(myRole==='C'){ body = companyCView(); }
+    else if(['1','2','3','4','5','6'].includes(myRole)){ body = (state.phase==='indices'?indicesView():'') + investorView(myRole); }
+    else if(myRole==='NSE'||myRole==='BSE'){ body = (state.phase==='indices'?indicesView():'') + exchangeView(myRole); }
+    else if(myRole==='REG'){ body = regulatoryView(); }
+    root.innerHTML = ticker() + topbar() + '<div class="wrap">'+body+'</div>' + guideModal();
+  }
+
+  render();
+})();
+</script>
+</body>
+</html>
